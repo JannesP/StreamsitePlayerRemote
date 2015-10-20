@@ -21,9 +21,13 @@ public class UByte {
         return value;
     }
 
+    public byte getByte() {
+        return (byte)value;
+    }
+
     public void setValue(int value) {
         if (value > 255 || value < 0) throw new IllegalArgumentException("The value was not valid for a UByte!");
-        this.value = (short)value;
+        this.value = (short)(value & 0xFF);
     }
 
     public void setValue(byte value) {

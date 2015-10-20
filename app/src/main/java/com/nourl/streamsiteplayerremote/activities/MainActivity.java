@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        createMediaController();
+        createMediaControl();
     }
 
     @Override
@@ -56,12 +56,10 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    private void createMediaController() {
+    private void createMediaControl() {
         MediaController mediaController = new MediaController(this, false) {
             @Override
-            public void hide() {
-                //super.show();   //prevent MediaController hiding
-            }
+            public void hide() { }  //override to prevent automatic hiding
         };
         mediaController.setAnchorView(findViewById(R.id.mediaFrame));
         mediaControl = new NetworkMediaPlayerControl(mediaController);

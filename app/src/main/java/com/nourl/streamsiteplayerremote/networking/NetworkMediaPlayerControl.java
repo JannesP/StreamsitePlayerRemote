@@ -26,7 +26,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     }
 
     public void show() {
-        mediaController.show();
+        if (!mediaController.isShowing()) mediaController.show();
     }
 
     @Override

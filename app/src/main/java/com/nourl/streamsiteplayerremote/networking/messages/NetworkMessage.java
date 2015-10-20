@@ -1,5 +1,7 @@
 package com.nourl.streamsiteplayerremote.networking.messages;
 
+import android.app.admin.DeviceAdminInfo;
+
 import com.nourl.streamsiteplayerremote.networking.UByte;
 
 /**
@@ -8,10 +10,14 @@ import com.nourl.streamsiteplayerremote.networking.UByte;
 public abstract class NetworkMessage {
 
     protected final NetworkMessageType TYPE;
-    protected final UByte ID;
+    protected final UByte SPECIFIC_TYPE;
+    protected final byte[] DATA;
+    protected final int ID;
 
-    protected NetworkMessage(NetworkMessageType type, UByte id) {
+    protected NetworkMessage(NetworkMessageType type, UByte specificType, int id, byte[] data) {
         TYPE = type;
+        SPECIFIC_TYPE = specificType;
+        DATA = data;
         ID = id;
     }
 
@@ -19,9 +25,27 @@ public abstract class NetworkMessage {
         return TYPE;
     }
 
-    public UByte getId() {
+    public UByte getSpecificType() {
+        return SPECIFIC_TYPE;
+    }
+
+    public byte[] getData() {
+        return DATA;
+    }
+
+    public int getID() {
         return ID;
     }
 
-    public abstract byte[] getDataBytes();
+    public byte[] getFullBytes() {
+        int length = 2;
+        if (DATA != null) {
+            length += DATA.length;
+        }
+        byte[] bytes = new byte[length];
+        bytes[0] = TYPE.getValue().getByte();   //TODO check if correct
+        bytes[1] = SPECIFIC_TYPE.getByte();
+        System.arraycopy(DATA, 0, bytes, 2, DATA.length);
+        return bytes;
+    }
 }
