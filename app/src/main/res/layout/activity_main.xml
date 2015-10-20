@@ -15,4 +15,33 @@
 
     </android.support.design.widget.AppBarLayout>
 
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/mainLayout">
+
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/mediaFrame"
+            android:layout_alignParentBottom="true"
+            android:background="@color/colorAccent" >
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:layout_above="@id/mediaFrame"
+            android:id="@+id/linearLayout">
+
+
+        </LinearLayout>
+
+
+    </RelativeLayout>
+
+
+
 </android.support.design.widget.CoordinatorLayout>
