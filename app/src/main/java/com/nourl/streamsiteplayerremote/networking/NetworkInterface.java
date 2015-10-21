@@ -2,7 +2,7 @@ package com.nourl.streamsiteplayerremote.networking;
 
 import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.ErrorEventArgs;
-import com.nourl.streamsiteplayerremote.networking.events.MessageEventArgs;
+import com.nourl.streamsiteplayerremote.networking.events.InfoEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.RequestEventArgs;
 import com.nourl.streamsiteplayerremote.networking.messages.NetworkMessage;
 
@@ -45,12 +45,12 @@ public abstract class NetworkInterface {
         }
     }
 
-    protected void onNetworkMessage(final MessageEventArgs eventArgs) {
+    protected void onNetworkInfoMessage(final InfoEventArgs eventArgs) {
         for (final INetworkReceiver receiver : receivers) {
             receiver.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    receiver.onNetworkMessage(eventArgs);
+                    receiver.onNetworkInfoMessage(eventArgs);
                 }
             });
         }
@@ -74,11 +74,11 @@ public abstract class NetworkInterface {
     public abstract void sendMessage(NetworkMessage message);
 
     /**
-     * Checks if the interface is ready. If not, try to call initialize if false.
+     * Checks if the interface is working. If not, try to call start().
      * @return true if interface is ready to send/receive data
      */
-    public abstract boolean isReady();
+    public abstract boolean isWorking();
 
-    public void initialize() { } //Override this if you need to initialize
-
+    public abstract void start();
+    public abstract void stop();
 }

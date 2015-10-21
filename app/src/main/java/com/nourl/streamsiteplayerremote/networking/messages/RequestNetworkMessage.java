@@ -15,16 +15,31 @@ public class RequestNetworkMessage extends NetworkMessage {
             id = new UByte(val);
         }
 
+        public static NetworkMessageRequestType get(UByte id) {
+            for (NetworkMessageRequestType type : values()) {
+                if (type.getValue() == id) return type;
+            }
+            return null;
+        }
+
         public UByte getValue() {
             return id;
         }
     }
 
-    protected RequestNetworkMessage(NetworkMessageRequestType type, int id) {
+    public RequestNetworkMessage(UByte type, UByte id) {
+        super(NetworkMessageType.REQUEST, type, id, null);
+    }
+
+    public RequestNetworkMessage(NetworkMessageRequestType type, UByte id) {
         super(NetworkMessageType.REQUEST, type.getValue(), id, null);
     }
 
-    protected RequestNetworkMessage(NetworkMessageRequestType type, int id, byte[] data) {
+    public RequestNetworkMessage(UByte type, UByte id, byte[] data) {
+        super(NetworkMessageType.REQUEST, type, id, data);
+    }
+
+    public RequestNetworkMessage(NetworkMessageRequestType type, UByte id, byte[] data) {
         super(NetworkMessageType.REQUEST, type.getValue(), id, data);
     }
 }

@@ -15,16 +15,27 @@ public class ControlNetworkMessage extends NetworkMessage {
             id = new UByte(val);
         }
 
+        public static ControlNetworkMessageType get(UByte id) {
+            for (ControlNetworkMessageType type : values()) {
+                if (type.getValue() == id) return type;
+            }
+            return null;
+        }
+
         public UByte getValue() {
             return id;
         }
     }
 
-    protected ControlNetworkMessage(ControlNetworkMessageType type, int id) {
+    public ControlNetworkMessage(UByte type, UByte id) {
+        super(NetworkMessageType.CONTROL, type, id, null);
+    }
+
+    public ControlNetworkMessage(ControlNetworkMessageType type, UByte id) {
         super(NetworkMessageType.CONTROL, type.getValue(), id, null);
     }
 
-    protected ControlNetworkMessage(ControlNetworkMessageType type, int id, byte[] data) {
+    public ControlNetworkMessage(ControlNetworkMessageType type, UByte id, byte[] data) {
         super(NetworkMessageType.CONTROL, type.getValue(), id, data);
     }
 }

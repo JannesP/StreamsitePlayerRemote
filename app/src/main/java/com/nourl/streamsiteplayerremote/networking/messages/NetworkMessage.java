@@ -12,12 +12,16 @@ public abstract class NetworkMessage {
     protected final NetworkMessageType TYPE;
     protected final UByte SPECIFIC_TYPE;
     protected final byte[] DATA;
-    protected final int ID;
+    protected final UByte ID;
 
-    protected NetworkMessage(NetworkMessageType type, UByte specificType, int id, byte[] data) {
+    protected NetworkMessage(NetworkMessageType type, UByte specificType, UByte id, byte[] data) {
         TYPE = type;
         SPECIFIC_TYPE = specificType;
-        DATA = data;
+        if (data != null) {
+            DATA = data;
+        } else {
+            DATA = new byte[0];
+        }
         ID = id;
     }
 
@@ -33,18 +37,16 @@ public abstract class NetworkMessage {
         return DATA;
     }
 
-    public int getID() {
+    public UByte getID() {
         return ID;
     }
 
     public byte[] getFullBytes() {
-        int length = 2;
-        if (DATA != null) {
-            length += DATA.length;
-        }
+        int length = 3 + DATA.length;
         byte[] bytes = new byte[length];
         bytes[0] = TYPE.getValue().getByte();   //TODO check if correct
         bytes[1] = SPECIFIC_TYPE.getByte();
+        bytes[2] = ID.getByte();
         System.arraycopy(DATA, 0, bytes, 2, DATA.length);
         return bytes;
     }
