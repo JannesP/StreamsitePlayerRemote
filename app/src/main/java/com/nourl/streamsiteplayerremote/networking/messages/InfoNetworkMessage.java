@@ -17,7 +17,7 @@ public class InfoNetworkMessage extends NetworkMessage {
 
         public static InfoNetworkMessageType get(UByte id) {
             for (InfoNetworkMessageType type : values()) {
-                if (type.getValue() == id) return type;
+                if (type.getValue().equals(id)) return type;
             }
             return null;
         }

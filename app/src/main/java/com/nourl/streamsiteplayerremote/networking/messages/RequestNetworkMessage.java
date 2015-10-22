@@ -17,7 +17,7 @@ public class RequestNetworkMessage extends NetworkMessage {
 
         public static NetworkMessageRequestType get(UByte id) {
             for (NetworkMessageRequestType type : values()) {
-                if (type.getValue() == id) return type;
+                if (type.getValue().equals(id)) return type;
             }
             return null;
         }

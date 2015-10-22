@@ -38,4 +38,15 @@ public class UByte {
         this.value = value;
     }
 
+    @Override
+    public int hashCode() {
+        return (int)getValue();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null) return false;
+        if (o.getClass() != UByte.class) return false;
+        return ((UByte)o).getValue() == getValue();
+    }
 }

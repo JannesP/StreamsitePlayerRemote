@@ -9,7 +9,28 @@ import java.util.Arrays;
  */
 public class Util {
 
-    private String byteArrayToString(byte[] array) {
+    public static byte[] intToByteArray(int val) {
+        byte[] bytes = new byte[4];
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte)(val >> i * 8);
+        }
+        return bytes;
+    }
+
+    public static int byteArrayToInt(byte[] array, int pos) {
+        if (array.length > (pos + 4)) {
+            int val = 0;
+            for (int i = 0; i < 4; i++) {
+                int unsignedByte = array[pos + i] & 0xFF;
+                val |= (unsignedByte << i * 8);
+            }
+            return val;
+        } else {
+            return 0;
+        }
+    }
+
+    private String arrayDebugString(byte[] array) {
         if (array == null) {
             return "null";
         }

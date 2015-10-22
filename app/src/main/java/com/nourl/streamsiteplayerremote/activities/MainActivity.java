@@ -38,6 +38,18 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        mediaControl.cancelRefreshLoop();
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        mediaControl.startRefreshLoop();
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
@@ -77,7 +89,9 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     private void createMediaControl() {
         MediaController mediaController = new MediaController(this, false) {
             @Override
-            public void hide() { }  //override to prevent automatic hiding
+            public void hide() {
+                show();
+            }  //override to prevent automatic hiding
         };
         mediaController.setAnchorView(findViewById(R.id.mediaFrame));
         mediaControl = new NetworkMediaPlayerControl(mediaController, networkInterface, this);

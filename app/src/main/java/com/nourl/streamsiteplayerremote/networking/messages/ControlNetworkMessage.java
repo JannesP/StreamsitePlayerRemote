@@ -8,7 +8,7 @@ import com.nourl.streamsiteplayerremote.networking.UByte;
 public class ControlNetworkMessage extends NetworkMessage {
 
     public enum ControlNetworkMessageType {
-        PLAY_PAUSE(0), CLOSE(1), NEXT(2), PREVIOUS(3), PLAY_EPISODE(4);
+        PLAY_PAUSE(0), CLOSE(1), NEXT(2), PREVIOUS(3), PLAY_EPISODE(4), SEEK_TO(5);
 
         private UByte id;
         ControlNetworkMessageType(int val) {
@@ -17,7 +17,7 @@ public class ControlNetworkMessage extends NetworkMessage {
 
         public static ControlNetworkMessageType get(UByte id) {
             for (ControlNetworkMessageType type : values()) {
-                if (type.getValue() == id) return type;
+                if (type.getValue().equals(id)) return type;
             }
             return null;
         }

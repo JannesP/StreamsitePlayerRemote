@@ -47,7 +47,7 @@ public abstract class NetworkMessage {
         bytes[0] = TYPE.getValue().getByte();   //TODO check if correct
         bytes[1] = SPECIFIC_TYPE.getByte();
         bytes[2] = ID.getByte();
-        System.arraycopy(DATA, 0, bytes, 2, DATA.length);
+        System.arraycopy(DATA, 0, bytes, 3, DATA.length);
         return bytes;
     }
 }

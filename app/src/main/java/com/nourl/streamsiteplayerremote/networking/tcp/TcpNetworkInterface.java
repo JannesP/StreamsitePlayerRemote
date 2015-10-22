@@ -5,6 +5,7 @@ import android.util.Log;
 import com.nourl.streamsiteplayerremote.networking.NetworkInterface;
 import com.nourl.streamsiteplayerremote.networking.UByte;
 import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
+import com.nourl.streamsiteplayerremote.networking.events.ErrorEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.InfoEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.RequestEventArgs;
 import com.nourl.streamsiteplayerremote.networking.messages.AnswerNetworkMessage;
@@ -21,6 +22,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Arrays;
 
 /**
  * Created by Jannes Peters on 20.10.2015.
@@ -55,7 +57,8 @@ public class TcpNetworkInterface extends NetworkInterface {
                         try {
                             inputStream = socket.getInputStream();
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            onNetworkError(new ErrorEventArgs());
+                            return;
                             //TODO handle
                         }
                     }
@@ -66,16 +69,21 @@ public class TcpNetworkInterface extends NetworkInterface {
                         int bytesReceived = -1;
                         try {
                             bytesReceived = inputStream.read(receiveBuffer);
-                            if (bytesReceived == -1) {
-                                Log.e("ERROR", "The input stream couldn't be read. End of stream reached, server disconnected.");
-                                inputStream.close();
-                            }
                         } catch (InterruptedIOException e) {
-                            break;
+                            return;
                         } catch (IOException e) {
-                            e.printStackTrace();
-                            break;
+                            onNetworkError(new ErrorEventArgs());
+                            return;
                             //TODO handle
+                        }
+                        if (bytesReceived == -1) {
+                            Log.d("ERROR", "The input stream couldn't be read. End of stream reached, server disconnected.");
+                            try {
+                                inputStream.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            return;
                         }
                         NetworkMessageType msgType = NetworkMessageType.get(new UByte(receiveBuffer[0]));
                         if (msgType != null) {
@@ -123,12 +131,15 @@ public class TcpNetworkInterface extends NetworkInterface {
                         try {
                             outputStream = socket.getOutputStream();
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            onNetworkError(new ErrorEventArgs());
+                            return;
                             //TODO handle
                         }
                     }
                 }
                 if (outputStream != null) {
+                    if (message.getData().length > 0)
+                        Log.d("SEND", Arrays.toString(message.getFullBytes()));
                     byte[] finalMsg = message.getFullBytes();
                     try {
                         outputStream.write(finalMsg);
@@ -138,6 +149,7 @@ public class TcpNetworkInterface extends NetworkInterface {
                         //and restart it, obviously
                         startReceiveLoop();
                     } catch (IOException e) {
+                        onNetworkError(new ErrorEventArgs());
                         e.printStackTrace();
                     }
                 }
@@ -158,7 +170,7 @@ public class TcpNetworkInterface extends NetworkInterface {
             public void run() {
                 try {
                     synchronized (socketLock) {
-                        if (socket == null || socket.isClosed()) socket = new Socket();
+                        if (socket == null || !socket.isConnected()) socket = new Socket();
                         socket.setKeepAlive(true);
                         socket.setReceiveBufferSize(MSG_MAX_SIZE);
                         socket.setSendBufferSize(MSG_MAX_SIZE);
@@ -166,7 +178,7 @@ public class TcpNetworkInterface extends NetworkInterface {
                     }
                     startReceiveLoop();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    //onNetworkError(new ErrorEventArgs());
                     //TODO handle
                 }
             }
@@ -178,9 +190,7 @@ public class TcpNetworkInterface extends NetworkInterface {
         if (receiveThread != null && receiveThread.isAlive()) receiveThread.interrupt();
         try {
             socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } catch (IOException ignored) { }
     }
 
     public int getTimeout() {
@@ -193,9 +203,6 @@ public class TcpNetworkInterface extends NetworkInterface {
             synchronized (socketLock) {
                 socket.setSoTimeout(timeout);
             }
-        } catch (SocketException e) {
-            e.printStackTrace();
-            //TODO handle
-        }
+        } catch (SocketException ignored) { }
     }
 }

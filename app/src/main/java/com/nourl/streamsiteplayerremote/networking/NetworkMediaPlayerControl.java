@@ -1,15 +1,18 @@
 package com.nourl.streamsiteplayerremote.networking;
 
 import android.app.Activity;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.MediaController;
 
+import com.nourl.streamsiteplayerremote.Util;
 import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.ErrorEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.InfoEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.RequestEventArgs;
 import com.nourl.streamsiteplayerremote.networking.messages.AnswerNetworkMessage;
+import com.nourl.streamsiteplayerremote.networking.messages.ControlNetworkMessage;
 import com.nourl.streamsiteplayerremote.networking.messages.RequestNetworkMessage;
 
 import java.util.Arrays;
@@ -21,8 +24,14 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     protected MediaController mediaController;
     protected NetworkInterface networkInterface;
     protected Activity activity;
+    protected Thread refreshThread;
+    protected Thread reconnectThread;
+    protected UByte currentRefreshId = new UByte(0);
 
     protected boolean isPlaying = false;
+    protected int position = 0;
+    protected int duration = 0;
+    protected int bufferPercentage = 0;
 
     public NetworkMediaPlayerControl(MediaController mediaController, NetworkInterface networkInterface, Activity activity) {
         this.activity = activity;
@@ -44,46 +53,51 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     }
 
     public void show() {
-        if (!mediaController.isShowing()) mediaController.show();
+        mediaController.show();
+        startRefreshLoop();
     }
 
     @Override
     public void start() {
-        //TODO write method
+        networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.PLAY_PAUSE, new UByte(0)));
     }
 
     @Override
     public void pause() {
-        //TODO write method
+        networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.PLAY_PAUSE, new UByte(0)));
     }
 
     @Override
     public int getDuration() {
-        //TODO write method
-        return 10000;
+        return duration;
     }
 
     @Override
     public int getCurrentPosition() {
-        //TODO write method
-        return 1000;
+        return position;
     }
+
+    private long lastSeek = 0;
 
     @Override
     public void seekTo(int pos) {
-        //TODO write method
+        if (lastSeek + 500 < SystemClock.elapsedRealtime()) {
+            byte[] bytePos = Util.intToByteArray(pos);
+            Log.d("SEEK", "Seeking to " + pos);
+            Log.d("SEEK", "Seeking to " + Arrays.toString(bytePos));
+            networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.SEEK_TO, new UByte(0), bytePos));
+            lastSeek = SystemClock.elapsedRealtime();
+        }
     }
 
     @Override
     public boolean isPlaying() {
-        //TODO write method
         return isPlaying;
     }
 
     @Override
     public int getBufferPercentage() {
-        //TODO write method
-        return 5000;
+        return bufferPercentage;
     }
 
     @Override
@@ -107,14 +121,11 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     }
 
     private void next() {
-        networkInterface.sendMessage(new RequestNetworkMessage(RequestNetworkMessage.NetworkMessageRequestType.PLAYER_STATUS, new UByte(130)));
-        //TODO write method
+        networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.NEXT, new UByte(0)));
     }
 
     private void previous() {
-        networkInterface.stop();
-        networkInterface.start();
-        //TODO write method
+        networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.PREVIOUS, new UByte(0)));
     }
 
     @Override
@@ -124,7 +135,8 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
 
     @Override
     public void onNetworkError(ErrorEventArgs eventArgs) {
-
+        Log.d("onNetworkError", "Network error received! Starting reconnectThread ...");
+        networkInterface.stop();
     }
 
     @Override
@@ -140,9 +152,81 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     @Override
     public void onNetworkAnswer(AnswerEventArgs eventArgs) {
         AnswerNetworkMessage answer = eventArgs.getMessage();
-        isPlaying = answer.getData()[0] == 1;
-        mediaController.show();
-        Log.d("ON_NETWORK_ANSWER", "Playing: " + answer.getData()[0]);
-        Log.d("DEBUG", Arrays.toString(answer.getData()));
+        RequestNetworkMessage.NetworkMessageRequestType requestType = RequestNetworkMessage.NetworkMessageRequestType.get(answer.getSpecificType());
+        if (requestType != null) {
+            byte[] data = answer.getData();
+            switch (requestType) {
+                case PLAYER_STATUS:
+                    if (data.length == 10) {
+                        isPlaying = data[0] == 1;
+                        position = Util.byteArrayToInt(data, 1);
+                        duration = Util.byteArrayToInt(data, 5);
+                        bufferPercentage = data[9] & 0xFF;
+                        mediaController.show();
+                    }
+                    break;
+            }
+        } else {
+            Log.d("ON_NETWORK_ANSWER", "Got invalid requestType in answer: " + answer.getSpecificType().getValue());
+        }
     }
+
+    private void reconnectLoop() {
+        if (reconnectThread == null || !reconnectThread.isAlive()) {
+            reconnectThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d("TCP_RECONNECT", "Begin reconnect ...");
+                    while (!networkInterface.isWorking()) {
+                        Log.d("TCP_RECONNECT", "Disconnected from host. Reconnecting ...");
+                        networkInterface.start();
+                        try {
+                            Thread.sleep(2000);
+                        } catch (InterruptedException e) {
+                            return;
+                        }
+                    }
+                    Log.d("TCP_RECONNECT", "Reconnected successfully!");
+                    refreshThread = null;
+                    startRefreshLoop();
+                }
+            });
+            reconnectThread.start();
+        }
+    }
+
+    public void cancelRefreshLoop() {
+        if (refreshThread != null) {
+            refreshThread.interrupt();
+        }
+    }
+
+    public void startRefreshLoop() {
+        if (refreshThread == null || ((refreshThread.getState() == Thread.State.TERMINATED) && (reconnectThread == null || !reconnectThread.isAlive()))) {
+            refreshThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d("TCP_REFRESH", "Refresh started!");
+                    while (true) {
+                        if (networkInterface.isWorking()) {
+                            networkInterface.sendMessage(new RequestNetworkMessage(RequestNetworkMessage.NetworkMessageRequestType.PLAYER_STATUS, currentRefreshId));
+                            currentRefreshId.setValue(currentRefreshId.getValue() % Byte.MAX_VALUE);
+                            try {
+                                Thread.sleep(250);
+                            } catch (InterruptedException e) {
+                                Log.d("TCP_REFRESH", "Refresh finished through interrupt!");
+                                return;
+                            }
+                        } else {
+                            reconnectLoop();
+                            Log.d("TCP_REFRESH", "Refresh finished! Starting reconnectThread ...");
+                            return;
+                        }
+                    }
+                }
+            });
+            refreshThread.start();
+        }
+    }
+
 }
