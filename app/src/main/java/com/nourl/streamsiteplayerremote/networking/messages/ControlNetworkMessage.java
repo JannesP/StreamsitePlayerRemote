@@ -8,7 +8,7 @@ import com.nourl.streamsiteplayerremote.networking.UByte;
 public class ControlNetworkMessage extends NetworkMessage {
 
     public enum ControlNetworkMessageType {
-        PLAY_PAUSE(0), CLOSE(1), NEXT(2), PREVIOUS(3), PLAY_EPISODE(4), SEEK_TO(5);
+        PLAY_PAUSE(0), CLOSE(1), NEXT(2), PREVIOUS(3), PLAY_EPISODE(4), SEEK_TO(5), SKIP_START(6), SKIP_END(7);
 
         private UByte id;
         ControlNetworkMessageType(int val) {

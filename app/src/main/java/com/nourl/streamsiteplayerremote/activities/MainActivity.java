@@ -13,14 +13,18 @@ import android.view.MenuItem;
 import android.view.ViewTreeObserver;
 import android.widget.LinearLayout;
 import android.widget.MediaController;
+import android.widget.NumberPicker;
 import android.widget.RelativeLayout;
 
 import com.nourl.streamsiteplayerremote.R;
+import com.nourl.streamsiteplayerremote.Util;
 import com.nourl.streamsiteplayerremote.networking.NetworkInterface;
 import com.nourl.streamsiteplayerremote.networking.NetworkMediaPlayerControl;
+import com.nourl.streamsiteplayerremote.networking.UByte;
+import com.nourl.streamsiteplayerremote.networking.messages.ControlNetworkMessage;
 import com.nourl.streamsiteplayerremote.networking.tcp.TcpNetworkInterface;
 
-public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener, NumberPicker.OnValueChangeListener {
 
     private NetworkMediaPlayerControl mediaControl;
     private NetworkInterface networkInterface;
@@ -32,9 +36,23 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this);
+        setupEventListeners();
         createNetworkInterface();
         createMediaControl();
+    }
+
+    private void setupEventListeners() {
+        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this);
+
+        NumberPicker npStart = (NumberPicker) findViewById(R.id.numberPickerSkipStart);
+        npStart.setMinValue(0);
+        npStart.setMaxValue(600);
+        npStart.setOnValueChangedListener(this);
+
+        NumberPicker npEnd = (NumberPicker) findViewById(R.id.numberPickerSkipEnd);
+        npEnd.setMinValue(0);
+        npEnd.setMaxValue(600);
+        npEnd.setOnValueChangedListener(this);
     }
 
     @Override
@@ -117,6 +135,20 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 break;
             case "pref_tcp_timeout":
                 createNetworkInterface();
+                break;
+        }
+    }
+
+    @Override
+    public void onValueChange(NumberPicker picker, int oldVal, int newVal) {
+        switch (picker.getId()) {
+            case R.id.numberPickerSkipStart:
+                if (networkInterface.isWorking())
+                    networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.SKIP_START, new UByte(0), Util.intToByteArray(picker.getValue())));
+                break;
+            case R.id.numberPickerSkipEnd:
+                if (networkInterface.isWorking())
+                    networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.SKIP_END, new UByte(0), Util.intToByteArray(picker.getValue())));
                 break;
         }
     }
