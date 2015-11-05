@@ -16,6 +16,7 @@
     </android.support.design.widget.AppBarLayout>
 
     <RelativeLayout
+        android:layout_marginTop="55dp"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:id="@+id/mainLayout">
@@ -29,13 +30,21 @@
             android:background="@color/colorAccent" >
         </FrameLayout>
 
+
         <LinearLayout
+            android:visibility="visible"
             android:layout_width="fill_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:layout_above="@id/mediaFrame"
-            android:id="@+id/linearLayout">
+            android:id="@+id/layoutConnected">
 
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/buttonToggleFullscreen"
+                android:text="Toggle Fullscreen"/>
 
             <RelativeLayout
                 android:orientation="horizontal"
@@ -52,6 +61,7 @@
                     <NumberPicker
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:descendantFocusability="blocksDescendants"
                         android:id="@+id/numberPickerSkipStart"/>
 
                     <TextView
@@ -80,13 +90,66 @@
                     <NumberPicker
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:descendantFocusability="blocksDescendants"
                         android:id="@+id/numberPickerSkipEnd"
                         android:layout_gravity="center_horizontal"/>
                 </LinearLayout>
 
             </RelativeLayout>
 
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?android:attr/textAppearanceMedium"
+                    android:text="Volume:"
+                    android:layout_gravity="center_vertical"
+                    android:id="@+id/textView2"/>
+
+                <SeekBar
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:layout_gravity="center_vertical"
+                    android:id="@+id/seekBarVolume"/>
+            </LinearLayout>
+
         </LinearLayout>
+
+        <RelativeLayout
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/layoutConnecting">
+
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:layout_centerHorizontal="true">
+
+                <ProgressBar
+                    style="?android:attr/progressBarStyleLarge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/progressBar"
+                    android:layout_gravity="center_horizontal"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?android:attr/textAppearanceMedium"
+                    android:text="Connecting ..."
+                    android:id="@+id/textView"
+                    android:layout_gravity="center_horizontal"/>
+            </LinearLayout>
+
+        </RelativeLayout>
 
 
     </RelativeLayout>

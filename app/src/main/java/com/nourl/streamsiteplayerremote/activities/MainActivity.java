@@ -1,20 +1,26 @@
 package com.nourl.streamsiteplayerremote.activities;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.preference.Preference;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.ViewTreeObserver;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.MediaController;
 import android.widget.NumberPicker;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 
 import com.nourl.streamsiteplayerremote.R;
 import com.nourl.streamsiteplayerremote.Util;
@@ -27,6 +33,7 @@ import com.nourl.streamsiteplayerremote.networking.tcp.TcpNetworkInterface;
 public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener, NumberPicker.OnValueChangeListener {
 
     private NetworkMediaPlayerControl mediaControl;
+    MyMediaController mediaController;
     private NetworkInterface networkInterface;
 
     @Override
@@ -39,6 +46,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         setupEventListeners();
         createNetworkInterface();
         createMediaControl();
+        setLayoutState(false);
     }
 
     private void setupEventListeners() {
@@ -53,18 +61,50 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         npEnd.setMinValue(0);
         npEnd.setMaxValue(600);
         npEnd.setOnValueChangedListener(this);
+
+        Button b = (Button) findViewById(R.id.buttonToggleFullscreen);
+        b.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.TOGGLE_FULLSCREEN, new UByte(0)));
+            }
+        });
+
+        SeekBar sb = (SeekBar) findViewById(R.id.seekBarVolume);
+        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private long lastChange = 0;
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if ((lastChange + 250) < SystemClock.elapsedRealtime()) {
+                    networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.VOLUME, new UByte(0), new byte[] { (byte)progress }));
+                    lastChange = SystemClock.elapsedRealtime();
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) { }
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) { }
+        });
+    }
+
+    public void setLayoutState(boolean connected) {
+        mediaController.setRealVisibility(connected);
+        findViewById(R.id.layoutConnected).setVisibility(connected ? View.VISIBLE : View.INVISIBLE);
+        findViewById(R.id.layoutConnecting).setVisibility(!connected ? View.VISIBLE : View.INVISIBLE);
     }
 
     @Override
-    protected void onStop() {
-        super.onStop();
-        mediaControl.cancelRefreshLoop();
+    protected void onPause() {
+        super.onPause();
+        Log.d("onPause", "Stopping network.");
+        mediaControl.stopNetwork();
     }
 
     @Override
-    protected void onRestart() {
-        super.onRestart();
-        mediaControl.startRefreshLoop();
+    protected void onResume() {
+        super.onResume();
+        Log.d("onResume", "Starting network.");
+        mediaControl.startNetwork();
     }
 
     @Override
@@ -105,12 +145,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     }
 
     private void createMediaControl() {
-        MediaController mediaController = new MediaController(this, false) {
-            @Override
-            public void hide() {
-                show();
-            }  //override to prevent automatic hiding
-        };
+        mediaController = new MyMediaController(this, false);
         mediaController.setAnchorView(findViewById(R.id.mediaFrame));
         mediaControl = new NetworkMediaPlayerControl(mediaController, networkInterface, this);
 
@@ -122,6 +157,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 }
             }
         );
+
     }
 
     @Override
@@ -150,6 +186,42 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 if (networkInterface.isWorking())
                     networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.SKIP_END, new UByte(0), Util.intToByteArray(picker.getValue())));
                 break;
+        }
+    }
+
+    public class MyMediaController extends MediaController {
+        private boolean visible = true;
+        private boolean isReadyToShow = false;
+
+        public MyMediaController(Context context, boolean useFastForward) {
+            super(context, useFastForward);
+        }
+
+        @Override
+        public void hide() {
+            if (visible) {
+                show();
+            } else {
+                super.hide();
+            }
+        }  //override to prevent automatic hiding
+
+        public void setRealVisibility(boolean visible) {
+            this.visible = visible;
+            if (visible) {
+                if (isReadyToShow) {
+                    show();
+                }
+            } else {
+                hide();
+            }
+        }
+
+        public void setReadyToShow() {
+            isReadyToShow = true;
+            if (visible) {
+                show();
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ import android.view.View;
 import android.widget.MediaController;
 
 import com.nourl.streamsiteplayerremote.Util;
+import com.nourl.streamsiteplayerremote.activities.MainActivity;
 import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.ErrorEventArgs;
 import com.nourl.streamsiteplayerremote.networking.events.InfoEventArgs;
@@ -21,7 +22,7 @@ import java.util.Arrays;
  * Created by Jannes Peters on 20.10.2015.
  */
 public class NetworkMediaPlayerControl implements MediaController.MediaPlayerControl, INetworkReceiver {
-    protected MediaController mediaController;
+    protected MainActivity.MyMediaController mediaController;
     protected NetworkInterface networkInterface;
     protected Activity activity;
     protected Thread refreshThread;
@@ -33,7 +34,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     protected int duration = 0;
     protected int bufferPercentage = 0;
 
-    public NetworkMediaPlayerControl(MediaController mediaController, NetworkInterface networkInterface, Activity activity) {
+    public NetworkMediaPlayerControl(MainActivity.MyMediaController mediaController, NetworkInterface networkInterface, Activity activity) {
         this.activity = activity;
         this.networkInterface = networkInterface;
         this.networkInterface.addNetworkReceiver(this);
@@ -53,7 +54,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     }
 
     public void show() {
-        mediaController.show();
+        mediaController.setReadyToShow();
         startRefreshLoop();
     }
 
@@ -135,8 +136,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
 
     @Override
     public void onNetworkError(ErrorEventArgs eventArgs) {
-        Log.d("onNetworkError", "Network error received! Starting reconnectThread ...");
-        networkInterface.stop();
+        Log.d("onNetworkError", "Network error received!");
     }
 
     @Override
@@ -172,12 +172,18 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     }
 
     private void reconnectLoop() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                ((MainActivity) activity).setLayoutState(false);
+            }
+        });
         if (reconnectThread == null || !reconnectThread.isAlive()) {
             reconnectThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     Log.d("TCP_RECONNECT", "Begin reconnect ...");
-                    while (!networkInterface.isWorking()) {
+                    while (!networkInterface.isWorking() && !Thread.currentThread().isInterrupted()) {
                         Log.d("TCP_RECONNECT", "Disconnected from host. Reconnecting ...");
                         networkInterface.start();
                         try {
@@ -186,28 +192,46 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
                             return;
                         }
                     }
-                    Log.d("TCP_RECONNECT", "Reconnected successfully!");
-                    refreshThread = null;
-                    startRefreshLoop();
+                    if (networkInterface.isWorking()) {
+                        Log.d("TCP_RECONNECT", "Reconnected successfully!");
+                        activity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                ((MainActivity) activity).setLayoutState(true);
+                            }
+                        });
+                        refreshThread = null;
+                        startRefreshLoop();
+                    } else {
+                        Log.d("TCP_RECONNECT", "Interrupted while reconnecting. Stopping networkInterface.");
+                        networkInterface.stop();
+                    }
                 }
             });
             reconnectThread.start();
         }
     }
 
-    public void cancelRefreshLoop() {
-        if (refreshThread != null) {
+    public void startNetwork() {
+        reconnectLoop();
+    }
+
+    public void stopNetwork() {
+        if (refreshThread != null && refreshThread.isAlive()) {
             refreshThread.interrupt();
+        }
+        if (reconnectThread != null && reconnectThread.isAlive()) {
+            reconnectThread.interrupt();
         }
     }
 
-    public void startRefreshLoop() {
+    private void startRefreshLoop() {
         if (refreshThread == null || ((refreshThread.getState() == Thread.State.TERMINATED) && (reconnectThread == null || !reconnectThread.isAlive()))) {
             refreshThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     Log.d("TCP_REFRESH", "Refresh started!");
-                    while (true) {
+                    while (!Thread.currentThread().isInterrupted()) {
                         if (networkInterface.isWorking()) {
                             networkInterface.sendMessage(new RequestNetworkMessage(RequestNetworkMessage.NetworkMessageRequestType.PLAYER_STATUS, currentRefreshId));
                             currentRefreshId.setValue(currentRefreshId.getValue() % Byte.MAX_VALUE);
@@ -219,7 +243,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
                             }
                         } else {
                             reconnectLoop();
-                            Log.d("TCP_REFRESH", "Refresh finished! Starting reconnectThread ...");
+                            Log.d("TCP_REFRESH", "Network interface no longer working. Starting reconnectThread ...");
                             return;
                         }
                     }

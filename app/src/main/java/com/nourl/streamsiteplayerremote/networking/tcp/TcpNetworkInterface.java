@@ -131,6 +131,7 @@ public class TcpNetworkInterface extends NetworkInterface {
                         try {
                             outputStream = socket.getOutputStream();
                         } catch (IOException e) {
+                            stop();
                             onNetworkError(new ErrorEventArgs());
                             return;
                             //TODO handle
@@ -149,6 +150,7 @@ public class TcpNetworkInterface extends NetworkInterface {
                         //and restart it, obviously
                         startReceiveLoop();
                     } catch (IOException e) {
+                        stop();
                         onNetworkError(new ErrorEventArgs());
                         e.printStackTrace();
                     }
@@ -178,7 +180,7 @@ public class TcpNetworkInterface extends NetworkInterface {
                     }
                     startReceiveLoop();
                 } catch (IOException e) {
-                    //onNetworkError(new ErrorEventArgs());
+                    onNetworkError(new ErrorEventArgs());
                     //TODO handle
                 }
             }
@@ -189,7 +191,9 @@ public class TcpNetworkInterface extends NetworkInterface {
     public void stop() {
         if (receiveThread != null && receiveThread.isAlive()) receiveThread.interrupt();
         try {
-            socket.close();
+            synchronized (socketLock) {
+                socket.close();
+            }
         } catch (IOException ignored) { }
     }
 
