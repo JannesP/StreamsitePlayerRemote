@@ -3,10 +3,8 @@ package com.nourl.streamsiteplayerremote.activities;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.preference.Preference;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -16,7 +14,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.MediaController;
 import android.widget.NumberPicker;
 import android.widget.RelativeLayout;
@@ -73,17 +70,22 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         SeekBar sb = (SeekBar) findViewById(R.id.seekBarVolume);
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             private long lastChange = 0;
+
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if ((lastChange + 250) < SystemClock.elapsedRealtime()) {
-                    networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.VOLUME, new UByte(0), new byte[] { (byte)progress }));
+                    networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.VOLUME, new UByte(0), new byte[]{(byte) progress}));
                     lastChange = SystemClock.elapsedRealtime();
                 }
             }
+
             @Override
-            public void onStartTrackingTouch(SeekBar seekBar) { }
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) { }
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
         });
     }
 
@@ -96,15 +98,23 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     @Override
     protected void onPause() {
         super.onPause();
-        Log.d("onPause", "Stopping network.");
-        mediaControl.stopNetwork();
+        Log.d("onPause", "Stopping explicit refresh over network ...");
+        mediaControl.stopNetworkRefresh();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Log.d("onResume", "Starting network.");
-        mediaControl.startNetwork();
+        Log.d("onResume", "Starting explicit refresh over network ...");
+        mediaControl.startNetworkRefresh();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.d("onDestroy", "onDestroy called, shutting down ...");
+        mediaControl.stopNetworkRefresh();
+        networkInterface.stop();
+        super.onDestroy();
     }
 
     @Override
@@ -198,6 +208,13 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }
 
         @Override
+        public void show() {
+            if (isReadyToShow) {
+                super.show();
+            }
+        }
+
+        @Override
         public void hide() {
             if (visible) {
                 show();
@@ -209,9 +226,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         public void setRealVisibility(boolean visible) {
             this.visible = visible;
             if (visible) {
-                if (isReadyToShow) {
-                    show();
-                }
+                show();
             } else {
                 hide();
             }

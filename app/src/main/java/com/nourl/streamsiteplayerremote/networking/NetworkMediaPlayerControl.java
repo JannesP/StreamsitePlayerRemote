@@ -182,7 +182,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
             reconnectThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d("TCP_RECONNECT", "Begin reconnect ...");
+                    Log.d("TCP_RECONNECT", "Checking connection ...");
                     while (!networkInterface.isWorking() && !Thread.currentThread().isInterrupted()) {
                         Log.d("TCP_RECONNECT", "Disconnected from host. Reconnecting ...");
                         networkInterface.start();
@@ -193,7 +193,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
                         }
                     }
                     if (networkInterface.isWorking()) {
-                        Log.d("TCP_RECONNECT", "Reconnected successfully!");
+                        Log.d("TCP_RECONNECT", "Connected successfully!");
                         activity.runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
@@ -212,11 +212,11 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
         }
     }
 
-    public void startNetwork() {
+    public void startNetworkRefresh() {
         reconnectLoop();
     }
 
-    public void stopNetwork() {
+    public void stopNetworkRefresh() {
         if (refreshThread != null && refreshThread.isAlive()) {
             refreshThread.interrupt();
         }

@@ -57,6 +57,8 @@ public class TcpNetworkInterface extends NetworkInterface {
                         try {
                             inputStream = socket.getInputStream();
                         } catch (IOException e) {
+                            Log.d("ERROR", "The input stream couldn't be retrieved. Stopping networking ...");
+                            stop();
                             onNetworkError(new ErrorEventArgs());
                             return;
                             //TODO handle
@@ -72,6 +74,8 @@ public class TcpNetworkInterface extends NetworkInterface {
                         } catch (InterruptedIOException e) {
                             return;
                         } catch (IOException e) {
+                            Log.d("TcpListener", "Server connection timed out. Stopping interface ...");
+                            stop();
                             onNetworkError(new ErrorEventArgs());
                             return;
                             //TODO handle
@@ -83,6 +87,7 @@ public class TcpNetworkInterface extends NetworkInterface {
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            stop();
                             return;
                         }
                         NetworkMessageType msgType = NetworkMessageType.get(new UByte(receiveBuffer[0]));
@@ -189,6 +194,7 @@ public class TcpNetworkInterface extends NetworkInterface {
 
     @Override
     public void stop() {
+        Log.d("TcpNetworking", "Stopping network.");
         if (receiveThread != null && receiveThread.isAlive()) receiveThread.interrupt();
         try {
             synchronized (socketLock) {
