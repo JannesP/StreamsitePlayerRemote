@@ -2,10 +2,13 @@ package com.nourl.streamsiteplayerremote.networking;
 
 import android.app.Activity;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.view.View;
 import android.widget.MediaController;
+import android.widget.SeekBar;
 
+import com.nourl.streamsiteplayerremote.R;
 import com.nourl.streamsiteplayerremote.Util;
 import com.nourl.streamsiteplayerremote.activities.MainActivity;
 import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
@@ -15,8 +18,14 @@ import com.nourl.streamsiteplayerremote.networking.events.RequestEventArgs;
 import com.nourl.streamsiteplayerremote.networking.messages.AnswerNetworkMessage;
 import com.nourl.streamsiteplayerremote.networking.messages.ControlNetworkMessage;
 import com.nourl.streamsiteplayerremote.networking.messages.RequestNetworkMessage;
+import com.nourl.streamsiteplayerremote.objects.Episode;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 
 /**
  * Created by Jannes Peters on 20.10.2015.
@@ -65,6 +74,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
 
     @Override
     public void pause() {
+        //networkInterface.sendMessage(new RequestNetworkMessage(RequestNetworkMessage.NetworkMessageRequestType.EPISODE_LIST, new UByte(0)));
         networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.PLAY_PAUSE, new UByte(0)));
     }
 
@@ -148,7 +158,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     public void onNetworkInfoMessage(InfoEventArgs eventArgs) {
 
     }
-
+    ArrayList<ArrayList<Episode>> episodes = new ArrayList<>();
     @Override
     public void onNetworkAnswer(AnswerEventArgs eventArgs) {
         AnswerNetworkMessage answer = eventArgs.getMessage();
@@ -157,13 +167,22 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
             byte[] data = answer.getData();
             switch (requestType) {
                 case PLAYER_STATUS:
-                    if (data.length == 10) {
+                    if (data.length == 11) {
                         isPlaying = data[0] == 1;
                         position = Util.byteArrayToInt(data, 1);
                         duration = Util.byteArrayToInt(data, 5);
                         bufferPercentage = data[9] & 0xFF;
+                        SeekBar sb = (SeekBar) activity.findViewById(R.id.seekBarVolume);
+                        sb.setProgress(data[10] & 0xFF);
                         mediaController.show();
                     }
+                    break;
+                case EPISODE_LIST:
+                    Episode episode = new Episode(data);
+                    while (episode.getSeason() >= episodes.size()) {
+                        episodes.add(new ArrayList<Episode>());
+                    }
+                    episodes.get(episode.getSeason()).add(episode);
                     break;
             }
         } else {

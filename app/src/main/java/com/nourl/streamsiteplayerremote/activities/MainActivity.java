@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if ((lastChange + 250) < SystemClock.elapsedRealtime()) {
+                if (fromUser && ((lastChange + 250) < SystemClock.elapsedRealtime())) {
                     networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.VOLUME, new UByte(0), new byte[]{(byte) progress}));
                     lastChange = SystemClock.elapsedRealtime();
                 }

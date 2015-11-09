@@ -8,7 +8,7 @@ import com.nourl.streamsiteplayerremote.networking.UByte;
 public class RequestNetworkMessage extends NetworkMessage {
 
     public enum NetworkMessageRequestType {
-        SERIES(0), SEASON(1), EPISODE(2), PLAYER_STATUS(3);
+        EPISODE_LIST(0), SEASON_COUNT(1), CURRENT_EPISODE(2), PLAYER_STATUS(3);
 
         private UByte id;
         NetworkMessageRequestType(int val) {

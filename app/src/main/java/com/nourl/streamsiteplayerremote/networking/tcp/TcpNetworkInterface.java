@@ -157,7 +157,6 @@ public class TcpNetworkInterface extends NetworkInterface {
                     } catch (IOException e) {
                         stop();
                         onNetworkError(new ErrorEventArgs());
-                        e.printStackTrace();
                     }
                 }
             }
