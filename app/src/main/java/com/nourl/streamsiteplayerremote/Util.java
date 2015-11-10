@@ -18,7 +18,7 @@ public class Util {
     }
 
     public static int byteArrayToInt(byte[] array, int pos) {
-        if (array.length > (pos + 4)) {
+        if (array.length >= (pos + 4)) {
             int val = 0;
             for (int i = 0; i < 4; i++) {
                 int unsignedByte = array[pos + i] & 0xFF;

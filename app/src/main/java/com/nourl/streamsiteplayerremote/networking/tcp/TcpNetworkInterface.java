@@ -2,6 +2,7 @@ package com.nourl.streamsiteplayerremote.networking.tcp;
 
 import android.util.Log;
 
+import com.nourl.streamsiteplayerremote.Util;
 import com.nourl.streamsiteplayerremote.networking.NetworkInterface;
 import com.nourl.streamsiteplayerremote.networking.UByte;
 import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
@@ -48,77 +50,102 @@ public class TcpNetworkInterface extends NetworkInterface {
 
     //TODO add receiving code
     private void startReceiveLoop() {
-        receiveThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                InputStream inputStream = null;
-                synchronized (socketLock) {
-                    if (socket != null && !socket.isClosed() && socket.isConnected()) {
-                        try {
-                            inputStream = socket.getInputStream();
-                        } catch (IOException e) {
-                            Log.d("ERROR", "The input stream couldn't be retrieved. Stopping networking ...");
-                            stop();
-                            onNetworkError(new ErrorEventArgs());
-                            return;
-                            //TODO handle
-                        }
-                    }
-                }
-                while (true) {
-                    if (inputStream != null) {
-                        byte[] receiveBuffer = new byte[MSG_MAX_SIZE];
-                        int bytesReceived = -1;
-                        try {
-                            bytesReceived = inputStream.read(receiveBuffer);
-                        } catch (InterruptedIOException e) {
-                            return;
-                        } catch (IOException e) {
-                            Log.d("TcpListener", "Server connection timed out. Stopping interface ...");
-                            stop();
-                            onNetworkError(new ErrorEventArgs());
-                            return;
-                            //TODO handle
-                        }
-                        if (bytesReceived == -1) {
-                            Log.d("ERROR", "The input stream couldn't be read. End of stream reached, server disconnected.");
+        if (receiveThread == null || receiveThread.getState() == Thread.State.TERMINATED) {
+            receiveThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d("ReceiveLoop", "Receive loop started.");
+                    InputStream inputStream = null;
+                    synchronized (socketLock) {
+                        if (socket != null && !socket.isClosed() && socket.isConnected()) {
                             try {
-                                inputStream.close();
+                                inputStream = socket.getInputStream();
                             } catch (IOException e) {
-                                e.printStackTrace();
+                                Log.d("ERROR", "The input stream couldn't be retrieved. Stopping networking ...");
+                                stop();
+                                onNetworkError(new ErrorEventArgs());
+                                return;
+                                //TODO handle
                             }
-                            stop();
-                            return;
                         }
-                        NetworkMessageType msgType = NetworkMessageType.get(new UByte(receiveBuffer[0]));
-                        if (msgType != null) {
-                            UByte specificMsgType = new UByte(receiveBuffer[1]);
-                            UByte id = new UByte(receiveBuffer[2]);
-                            byte[] data = new byte[bytesReceived - 3];
-                            System.arraycopy(receiveBuffer, 3, data, 0, data.length);
-                            NetworkMessage netMsg;
-                            switch (msgType) {
-                                case ANSWER:
-                                    netMsg = new AnswerNetworkMessage(specificMsgType, id, data);
-                                    onNetworkAnswer(new AnswerEventArgs((AnswerNetworkMessage) netMsg));
-                                    return;
-                                case REQUEST:
-                                    netMsg = new RequestNetworkMessage(specificMsgType, id, data);
-                                    onNetworkRequest(new RequestEventArgs((RequestNetworkMessage) netMsg));
-                                    return;
-                                case INFO:
-                                    netMsg = new InfoNetworkMessage(specificMsgType, id, data);
-                                    onNetworkInfoMessage(new InfoEventArgs((InfoNetworkMessage) netMsg));
-                                    break;
+                    }
+                    while (true) {
+                        if (inputStream != null) {
+                            byte[] receiveBuffer = new byte[4];
+                            int bytesReceived = 0;
+                            try {
+                                receiveExactBytes(inputStream, receiveBuffer);
+                                int msgLength = Util.byteArrayToInt(receiveBuffer, 0);
+                                receiveBuffer = new byte[msgLength];
+                                bytesReceived = receiveExactBytes(inputStream, receiveBuffer);
+                                Log.d("MSG_DATA", Arrays.toString(receiveBuffer));
+                            } catch (InterruptedIOException e) {
+                                return;
+                            } catch (EndOfStreamException e) {
+                                Log.d("ERROR", "The input stream couldn't be read. End of stream reached, server disconnected.");
+                                try {
+                                    inputStream.close();
+                                } catch (IOException ignored) { }
+                                stop();
+                                return;
+                            } catch (IOException e) {
+                                Log.d("TcpListener", "Server connection timed out. Stopping interface ...");
+                                stop();
+                                onNetworkError(new ErrorEventArgs());
+                                return;
+                                //TODO handle
                             }
-                        } else {
-                            Log.e("ERROR", "Got invalid msgType: " + receiveBuffer[0]);
+                            NetworkMessageType msgType = NetworkMessageType.get(new UByte(receiveBuffer[0]));
+                            if (msgType != null) {
+                                UByte specificMsgType = new UByte(receiveBuffer[1]);
+                                UByte id = new UByte(receiveBuffer[2]);
+                                byte[] data = new byte[bytesReceived - 3];
+                                System.arraycopy(receiveBuffer, 3, data, 0, data.length);
+                                NetworkMessage netMsg;
+                                switch (msgType) {
+                                    case ANSWER:
+                                        netMsg = new AnswerNetworkMessage(specificMsgType, id, data);
+                                        onNetworkAnswer(new AnswerEventArgs((AnswerNetworkMessage) netMsg));
+                                        return;
+                                    case REQUEST:
+                                        netMsg = new RequestNetworkMessage(specificMsgType, id, data);
+                                        onNetworkRequest(new RequestEventArgs((RequestNetworkMessage) netMsg));
+                                        return;
+                                    case INFO:
+                                        netMsg = new InfoNetworkMessage(specificMsgType, id, data);
+                                        onNetworkInfoMessage(new InfoEventArgs((InfoNetworkMessage) netMsg));
+                                        break;
+                                }
+                            } else {
+                                Log.e("ERROR", "Got invalid msgType: " + receiveBuffer[0]);
+                            }
                         }
                     }
                 }
+            });
+            receiveThread.setName("receiveThread");
+            receiveThread.start();
+        }
+    }
+
+    private int receiveExactBytes(InputStream inputStream, byte[] buffer) throws IOException {
+        return receiveExactBytes(inputStream, buffer, buffer.length);
+    }
+
+    private int receiveExactBytes(InputStream inputStream, byte[] buffer, int count) throws IOException {
+        int bytesReceived = 0;
+        while (bytesReceived < count) {
+            int received = inputStream.read(buffer, bytesReceived, count - bytesReceived);
+            if (received == -1) {
+                throw new EndOfStreamException();
             }
-        });
-        receiveThread.start();
+            bytesReceived += received;
+        }
+        if (bytesReceived > count) {
+            Log.e("receiveExactBytes", "Too many bytes were read, wtf? Throwing EndOfStreamException.");
+            throw new EndOfStreamException();
+        }
+        return buffer.length;
     }
 
     private void stopReceiveLoop() {
