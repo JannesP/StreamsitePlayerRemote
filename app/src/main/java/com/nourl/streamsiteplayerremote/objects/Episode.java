@@ -21,6 +21,11 @@ public class Episode {
         }
     }
 
+    @Override
+    public String toString() {
+        return "Episode " + number + " - " + this.name;
+    }
+
     public int getSeason() {
         return season;
     }

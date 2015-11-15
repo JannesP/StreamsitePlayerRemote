@@ -158,7 +158,7 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
     public void onNetworkInfoMessage(InfoEventArgs eventArgs) {
 
     }
-    ArrayList<ArrayList<Episode>> episodes = new ArrayList<>();
+
     @Override
     public void onNetworkAnswer(AnswerEventArgs eventArgs) {
         AnswerNetworkMessage answer = eventArgs.getMessage();
@@ -176,13 +176,6 @@ public class NetworkMediaPlayerControl implements MediaController.MediaPlayerCon
                         sb.setProgress(data[10] & 0xFF);
                         mediaController.show();
                     }
-                    break;
-                case EPISODE_LIST:
-                    Episode episode = new Episode(data);
-                    while (episode.getSeason() >= episodes.size()) {
-                        episodes.add(new ArrayList<Episode>());
-                    }
-                    episodes.get(episode.getSeason()).add(episode);
                     break;
             }
         } else {

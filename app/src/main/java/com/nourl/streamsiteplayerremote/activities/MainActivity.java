@@ -1,5 +1,6 @@
 package com.nourl.streamsiteplayerremote.activities;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -13,21 +14,39 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ListAdapter;
 import android.widget.MediaController;
 import android.widget.NumberPicker;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.Spinner;
+import android.widget.SpinnerAdapter;
 
 import com.nourl.streamsiteplayerremote.R;
 import com.nourl.streamsiteplayerremote.Util;
+import com.nourl.streamsiteplayerremote.networking.INetworkReceiver;
 import com.nourl.streamsiteplayerremote.networking.NetworkInterface;
 import com.nourl.streamsiteplayerremote.networking.NetworkMediaPlayerControl;
 import com.nourl.streamsiteplayerremote.networking.UByte;
+import com.nourl.streamsiteplayerremote.networking.events.AnswerEventArgs;
+import com.nourl.streamsiteplayerremote.networking.events.ErrorEventArgs;
+import com.nourl.streamsiteplayerremote.networking.events.InfoEventArgs;
+import com.nourl.streamsiteplayerremote.networking.events.RequestEventArgs;
+import com.nourl.streamsiteplayerremote.networking.messages.AnswerNetworkMessage;
 import com.nourl.streamsiteplayerremote.networking.messages.ControlNetworkMessage;
+import com.nourl.streamsiteplayerremote.networking.messages.InfoNetworkMessage;
+import com.nourl.streamsiteplayerremote.networking.messages.RequestNetworkMessage;
 import com.nourl.streamsiteplayerremote.networking.tcp.TcpNetworkInterface;
+import com.nourl.streamsiteplayerremote.objects.Episode;
 
-public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener, NumberPicker.OnValueChangeListener {
+import java.util.ArrayList;
+import java.util.Arrays;
+
+public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener, NumberPicker.OnValueChangeListener, INetworkReceiver, AdapterView.OnItemSelectedListener {
 
     private NetworkMediaPlayerControl mediaControl;
     MyMediaController mediaController;
@@ -151,6 +170,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         int port = Integer.parseInt(prefs.getString("pref_tcp_port", "8003"));
         int timeout = Integer.parseInt(prefs.getString("pref_tcp_timeout", "1000"));
         networkInterface = new TcpNetworkInterface(ip, port, timeout);
+        networkInterface.addNetworkReceiver(this);
         networkInterface.start();
     }
 
@@ -161,11 +181,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
         RelativeLayout mainLayout = (RelativeLayout) findViewById(R.id.mainLayout);
         mainLayout.getViewTreeObserver().addOnGlobalLayoutListener(
-            new ViewTreeObserver.OnGlobalLayoutListener() {
-                public void onGlobalLayout() {
-                    mediaControl.show();
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    public void onGlobalLayout() {
+                        mediaControl.show();
+                    }
                 }
-            }
         );
 
     }
@@ -197,6 +217,99 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.SKIP_END, new UByte(0), Util.intToByteArray(picker.getValue())));
                 break;
         }
+    }
+
+    @Override
+    public Activity getActivity() {
+        return this;
+    }
+
+    ArrayList<ArrayList<Episode>> episodes = new ArrayList<>();
+    @Override
+    public void onNetworkAnswer(AnswerEventArgs eventArgs) {
+        AnswerNetworkMessage answer = eventArgs.getMessage();
+        RequestNetworkMessage.NetworkMessageRequestType requestType = RequestNetworkMessage.NetworkMessageRequestType.get(answer.getSpecificType());
+        if (requestType != null) {
+            byte[] data = answer.getData();
+            switch (requestType) {
+                case EPISODE_LIST:
+                    if (Arrays.equals(data, new byte[]{1, 2, 3, 4})) {
+                        if (episodes.size() != 0) {
+                            View layout = findViewById(R.id.layoutEpisodesLoaded);
+                            layout.setVisibility(View.VISIBLE);
+
+                            Spinner spinnerSeason = (Spinner) findViewById(R.id.spinnerSeason);
+                            ArrayAdapter<String> adapterSeasons = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item);
+                            for (int i = 0; i < episodes.size(); i++) {
+                                adapterSeasons.add("Season " + (i + 1));
+                            }
+                            spinnerSeason.setAdapter(adapterSeasons);
+                            spinnerSeason.setOnItemSelectedListener(this);
+
+                            Spinner spinnerEpisodes = (Spinner) findViewById(R.id.spinnerEpisode);
+                            spinnerEpisodes.setAdapter(createEpisodeAdapter(1));
+                            spinnerEpisodes.setOnItemSelectedListener(this);
+                        } else {
+                            View layout = findViewById(R.id.layoutEpisodesLoaded);
+                            layout.setVisibility(View.GONE);
+                        }
+                    } else {
+                        Episode episode = new Episode(data);
+                        while (episode.getSeason() > episodes.size()) {
+                            episodes.add(new ArrayList<Episode>());
+                        }
+                        episodes.get(episode.getSeason() - 1).add(episode);
+                    }
+                    break;
+            }
+        } else {
+            Log.d("ON_NETWORK_ANSWER", "Got invalid requestType in answer: " + answer.getSpecificType().getValue());
+        }
+    }
+
+    private ArrayAdapter<Episode> createEpisodeAdapter(int season) {
+        ArrayAdapter<Episode> episodeList = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item);
+        for (int i = 0; i < episodes.get(season - 1).size(); i++) {
+            episodeList.add(episodes.get(season - 1).get(i));
+        }
+        return episodeList;
+    }
+
+    @Override
+    public void onNetworkError(ErrorEventArgs eventArgs) { }
+    @Override
+    public void onNetworkRequest(RequestEventArgs eventArgs) { }
+    @Override
+    public void onNetworkInfoMessage(InfoEventArgs eventArgs) {
+        InfoNetworkMessage.InfoNetworkMessageType type = InfoNetworkMessage.InfoNetworkMessageType.get(eventArgs.getMessage().getID());
+        if (type == null) return;
+        switch (type) {
+            case SERIES_CHANGED:
+                networkInterface.sendMessage(new RequestNetworkMessage(RequestNetworkMessage.NetworkMessageRequestType.EPISODE_LIST, new UByte(120)));
+                episodes.clear();
+                View layout = findViewById(R.id.layoutEpisodesLoaded);
+                layout.setVisibility(View.GONE);
+                break;
+        }
+    }
+
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        switch (parent.getId()) {
+            case R.id.spinnerEpisode:
+                Episode episode = (Episode) parent.getItemAtPosition(position);
+                networkInterface.sendMessage(new ControlNetworkMessage(ControlNetworkMessage.ControlNetworkMessageType.PLAY_EPISODE, new UByte(0), Util.intToByteArray(episode.getNumber())));
+                break;
+            case R.id.spinnerSeason:
+                Spinner spinnerEpisodes = (Spinner) findViewById(R.id.spinnerEpisode);
+                spinnerEpisodes.setAdapter(createEpisodeAdapter(position + 1));
+                break;
+        }
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> parent) {
+
     }
 
     public class MyMediaController extends MediaController {

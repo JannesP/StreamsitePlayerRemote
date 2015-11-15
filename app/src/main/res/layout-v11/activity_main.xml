@@ -118,6 +118,28 @@
                     android:id="@+id/seekBarVolume"/>
             </LinearLayout>
 
+            <LinearLayout
+                android:visibility="visible"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:id="@+id/layoutEpisodesLoaded">
+
+                <Spinner
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/spinnerSeason"
+                    android:layout_gravity="center_horizontal"/>
+
+                <Spinner
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/spinnerEpisode"
+                    android:layout_gravity="center_horizontal"/>
+
+            </LinearLayout>
+
+
         </LinearLayout>
 
         <RelativeLayout
